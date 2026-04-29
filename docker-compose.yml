@@ -29,6 +29,8 @@ services:
       - ./output:/workspace/output
       # Scripts are hot-reloaded — edit without rebuilding
       - ./scripts:/workspace/scripts
+      # Local model checkpoints — no download needed
+      - ./models:/workspace/models
     stdin_open: true
     tty: true
     command: /bin/bash

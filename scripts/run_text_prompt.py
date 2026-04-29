@@ -43,7 +43,15 @@ def main() -> None:
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    model_dir = f"/workspace/models/{args.model}"
+    MODEL_DIRS = {
+        "small":    "sam-audio-small",
+        "base":     "sam-audio-base",
+        "large":    "sam-audio-large",
+        "small-tv": "sam-audio-small-tv",
+        "base-tv":  "sam-audio-base-tv",
+        "large-tv": "sam-audio-large-tv",
+    }
+    model_dir = f"/workspace/models/{MODEL_DIRS[args.model]}"
 
     # --- Load SAM-Audio model ---
     try:
