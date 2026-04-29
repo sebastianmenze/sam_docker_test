@@ -3,6 +3,8 @@ FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Prevent git from trying to open a TTY for credentials during docker build
+ENV GIT_TERMINAL_PROMPT=0
 
 # System dependencies — ffmpeg is required by pydub, torchcodec, av, and imageio-ffmpeg
 RUN apt-get update && apt-get install -y \
@@ -57,14 +59,7 @@ RUN pip install mmengine
 
 # SAM-audio git dependencies
 RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
-
-# perception repo is private — requires a GitHub token.
-# Build with: docker compose build  (token read from .env GITHUB_TOKEN)
-ARG GITHUB_TOKEN=""
-RUN if [ -z "${GITHUB_TOKEN}" ]; then \
-      echo "ERROR: GITHUB_TOKEN build arg is required for the perception repo." && exit 1; \
-    fi && \
-    pip install "git+https://${GITHUB_TOKEN}@github.com/facebookresearch/perception.git"
+RUN pip install "git+https://github.com/facebookresearch/perception.git"
 
 # Clone SAM-Audio and install (--no-deps since we already installed everything above)
 RUN git clone https://github.com/facebookresearch/sam-audio.git /workspace/sam-audio
