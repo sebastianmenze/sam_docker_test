@@ -52,9 +52,14 @@ RUN pip install torchcodec --index-url https://download.pytorch.org/whl/cu128 ||
 # SAM-audio git dependencies
 RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
 
-# torchvision.transforms.functional_tensor was removed in 0.17+; ImageBind still uses it.
-# sitecustomize.py runs before any user code and registers the compatibility shim.
-COPY sitecustomize.py /usr/local/lib/python3.11/sitecustomize.py
+# torchvision.transforms.functional_tensor was removed in 0.17+; ImageBind still imports it.
+# Create the missing file directly inside the torchvision package — most reliable fix.
+RUN python3 -c "
+import os, torchvision.transforms as T
+ft_path = os.path.join(os.path.dirname(T.__file__), 'functional_tensor.py')
+open(ft_path, 'w').write('from torchvision.transforms.functional import *\n')
+print('Created:', ft_path)
+"
 
 # The pyproject.toml had a wrong repo name (perception vs perception_models).
 # facebookresearch/perception_models is the correct public repo — no token needed.
@@ -65,6 +70,7 @@ RUN pip install xformers --index-url https://download.pytorch.org/whl/cu128
 
 # Clone SAM-Audio and install
 RUN git clone https://github.com/facebookresearch/sam-audio.git /workspace/sam-audio
+RUN pip install torchdiffeq
 RUN pip install -e /workspace/sam-audio --no-deps
 
 # Pre-download imageio-ffmpeg static binary
