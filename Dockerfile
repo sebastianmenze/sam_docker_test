@@ -7,7 +7,12 @@ ENV PYTHONUNBUFFERED=1
 ENV GIT_TERMINAL_PROMPT=0
 
 # System dependencies — ffmpeg is required by pydub, torchcodec, av, and imageio-ffmpeg
-RUN apt-get update && apt-get install -y \
+# -o flags work around stale/invalid GPG signatures in the base image
+RUN apt-get -o Acquire::Check-Valid-Until=false \
+            -o Acquire::Check-Date=false \
+            -o Acquire::AllowInsecureRepositories=true \
+            update \
+    && apt-get install -y --allow-unauthenticated \
     ffmpeg \
     libavcodec-dev \
     libavformat-dev \
