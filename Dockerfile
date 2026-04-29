@@ -1,5 +1,5 @@
 # nvidia/cuda base — CUDA 12.8 supports Blackwell (sm_120) on Windows and the Linux server
-FROM nvidia/cuda:12.8.1-cudnn9-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
