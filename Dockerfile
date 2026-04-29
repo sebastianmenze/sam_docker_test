@@ -6,27 +6,20 @@ ENV PYTHONUNBUFFERED=1
 # Prevent git from trying to open a TTY for credentials during docker build
 ENV GIT_TERMINAL_PROMPT=0
 
-# System dependencies — ffmpeg is required by pydub, torchcodec, av, and imageio-ffmpeg
-# -o flags work around stale/invalid GPG signatures in the base image
-RUN apt-get -o Acquire::Check-Valid-Until=false \
-            -o Acquire::Check-Date=false \
-            -o Acquire::AllowInsecureRepositories=true \
-            update \
-    && apt-get install -y --allow-unauthenticated \
-    ffmpeg \
-    libavcodec-dev \
-    libavformat-dev \
-    libavfilter-dev \
-    libavdevice-dev \
-    libsndfile1-dev \
-    libsox-dev \
-    sox \
-    git \
-    wget \
-    curl \
-    build-essential \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+# System dependencies — only runtime libs needed; -dev headers not required for pre-built wheels
+# apt-get clean first to free any cached archives before downloading
+RUN apt-get clean \
+    && apt-get -o Acquire::Check-Valid-Until=false \
+               -o Acquire::Check-Date=false \
+               -o Acquire::AllowInsecureRepositories=true \
+               update \
+    && apt-get install -y --allow-unauthenticated --no-install-recommends \
+       ffmpeg \
+       libsndfile1 \
+       git \
+       build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 WORKDIR /workspace
 
