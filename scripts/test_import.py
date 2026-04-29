@@ -24,15 +24,15 @@ except Exception as e:
     print(f"sam_audio import failed: {e}")
 
 try:
-    import imagebind
+    from imagebind.models import imagebind_model
     print("ImageBind loaded OK")
 except Exception as e:
     print(f"ImageBind import failed: {e}")
 
 try:
-    import perception
-    print("perception-models loaded OK")
+    import perception_models
+    print("perception_models loaded OK")
 except Exception as e:
-    print(f"perception import failed: {e}")
+    print(f"perception_models import failed: {e}")
 
 print("\nAll checks done.")

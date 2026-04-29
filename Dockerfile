@@ -6,13 +6,14 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV GIT_TERMINAL_PROMPT=0
 
-# Python 3.11 + minimal system deps
+# Python 3.11 + FFmpeg (needed by torchcodec for libavutil.so) + minimal deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-dev \
     python3-pip \
     git \
     libsndfile1 \
+    ffmpeg \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
     && rm -rf /var/lib/apt/lists/*
@@ -50,6 +51,12 @@ RUN pip install torchcodec --index-url https://download.pytorch.org/whl/cu128 ||
 
 # SAM-audio git dependencies
 RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
+
+# ImageBind uses torchvision.transforms.functional_tensor which was removed in 0.17+.
+# Patch it to use the merged torchvision.transforms.functional instead.
+RUN find /usr/local/lib/python3.11/dist-packages/imagebind -name "*.py" | \
+    xargs grep -l "functional_tensor" | \
+    xargs sed -i 's/from torchvision\.transforms import functional_tensor/from torchvision.transforms import functional as functional_tensor/g'
 
 # The pyproject.toml had a wrong repo name (perception vs perception_models).
 # facebookresearch/perception_models is the correct public repo — no token needed.
