@@ -1,37 +1,30 @@
-FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
+# nvidia/cuda base — CUDA 12.8 supports Blackwell (sm_120) on Windows and the Linux server
+FROM nvidia/cuda:12.8.1-cudnn9-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-# Prevent git from trying to open a TTY for credentials during docker build
 ENV GIT_TERMINAL_PROMPT=0
 
-# /var/cache/apt/archives may be on a full partition — redirect downloads to /tmp
-RUN mkdir -p /tmp/apt-dl \
-    && apt-get clean \
-    && apt-get -o Acquire::Check-Valid-Until=false \
-               -o Acquire::Check-Date=false \
-               -o Acquire::AllowInsecureRepositories=true \
-               -o Dir::Cache::archives="/tmp/apt-dl" \
-               update \
-    && apt-get install -y --allow-unauthenticated --no-install-recommends \
-               -o Dir::Cache::archives="/tmp/apt-dl" \
-       git \
-       libsndfile1 \
-    && rm -rf /var/lib/apt/lists/* /tmp/apt-dl \
-    && apt-get clean
+# Python 3.11 + minimal system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    git \
+    libsndfile1 \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 RUN pip install --upgrade pip setuptools wheel
 
-# Match torchaudio / torchvision to the base PyTorch 2.6.0 + CUDA 12.4
-RUN pip install \
-    torchaudio==2.6.0 \
-    torchvision==0.21.0 \
-    --index-url https://download.pytorch.org/whl/cu124
+# PyTorch — no version pin, picks latest cu128 build (2.7+ for Blackwell sm_120)
+RUN pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu128
 
-# Core scientific / utility packages
+# Core deps
 RUN pip install \
     einops \
     omegaconf \
@@ -40,7 +33,7 @@ RUN pip install \
     scikit-image \
     huggingface_hub
 
-# Audio processing
+# Audio/video
 RUN pip install \
     pydub \
     "laion-clap" \
@@ -48,25 +41,27 @@ RUN pip install \
     imageio \
     imageio-ffmpeg
 
-# Video / codec processing
-RUN pip install pytorchvideo
-RUN pip install torchcodec==0.2.1 --index-url https://download.pytorch.org/whl/cu124
+# pytorchvideo + mmengine
+RUN pip install pytorchvideo mmengine
 
-# OpenMMLab — provides mmengine used internally
-RUN pip install mmengine
+# torchcodec: try cu128 first, fall back to cu124 if no cu128 wheel yet
+RUN pip install torchcodec --index-url https://download.pytorch.org/whl/cu128 || \
+    pip install torchcodec==0.2.1 --index-url https://download.pytorch.org/whl/cu124
 
 # SAM-audio git dependencies
 RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
 RUN pip install "git+https://github.com/facebookresearch/perception.git"
 
-# Clone SAM-Audio and install (--no-deps since we already installed everything above)
+# Install xformers compatible with the installed torch version
+RUN pip install xformers --index-url https://download.pytorch.org/whl/cu128
+
+# Clone SAM-Audio and install
 RUN git clone https://github.com/facebookresearch/sam-audio.git /workspace/sam-audio
 RUN pip install -e /workspace/sam-audio --no-deps
 
-# Pre-download the imageio-ffmpeg static binary so it's available at runtime
+# Pre-download imageio-ffmpeg static binary
 RUN python -c "import imageio_ffmpeg; print('ffmpeg binary:', imageio_ffmpeg.get_ffmpeg_exe())"
 
-# Directories for user-supplied audio and outputs
 RUN mkdir -p /workspace/audio_files /workspace/output /workspace/scripts
 
 WORKDIR /workspace
