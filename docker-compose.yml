@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     image: sam-audio:latest
     container_name: sam-audio-test
     # GPU access — requires nvidia-container-toolkit on the host
