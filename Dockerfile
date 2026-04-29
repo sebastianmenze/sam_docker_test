@@ -53,9 +53,12 @@ RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
 
 # facebookresearch/perception is a private repo — needs a GitHub token.
 # Token is injected via Docker build secret (never stored in image layers).
-# Before building: set GITHUB_TOKEN env var, then run docker compose build.
+# Before building: set GITHUB_TOKEN in .env, then run docker compose build.
 RUN --mount=type=secret,id=github_token \
-    pip install "git+https://$(cat /run/secrets/github_token)@github.com/facebookresearch/perception.git"
+    TOKEN=$(cat /run/secrets/github_token | tr -d '[:space:]') && \
+    git clone "https://${TOKEN}@github.com/facebookresearch/perception.git" /tmp/perception && \
+    pip install /tmp/perception && \
+    rm -rf /tmp/perception
 
 # Install xformers compatible with the installed torch version
 RUN pip install xformers --index-url https://download.pytorch.org/whl/cu128
