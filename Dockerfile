@@ -6,18 +6,16 @@ ENV PYTHONUNBUFFERED=1
 # Prevent git from trying to open a TTY for credentials during docker build
 ENV GIT_TERMINAL_PROMPT=0
 
-# System dependencies — only runtime libs needed; -dev headers not required for pre-built wheels
-# apt-get clean first to free any cached archives before downloading
+# Minimal system deps — ffmpeg comes from imageio-ffmpeg (bundled static binary),
+# av/torchcodec ship their own. build-essential is already in the devel base image.
 RUN apt-get clean \
     && apt-get -o Acquire::Check-Valid-Until=false \
                -o Acquire::Check-Date=false \
                -o Acquire::AllowInsecureRepositories=true \
                update \
     && apt-get install -y --allow-unauthenticated --no-install-recommends \
-       ffmpeg \
-       libsndfile1 \
        git \
-       build-essential \
+       libsndfile1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -62,6 +60,9 @@ RUN pip install "git+https://github.com/facebookresearch/perception.git"
 # Clone SAM-Audio and install (--no-deps since we already installed everything above)
 RUN git clone https://github.com/facebookresearch/sam-audio.git /workspace/sam-audio
 RUN pip install -e /workspace/sam-audio --no-deps
+
+# Pre-download the imageio-ffmpeg static binary so it's available at runtime
+RUN python -c "import imageio_ffmpeg; print('ffmpeg binary:', imageio_ffmpeg.get_ffmpeg_exe())"
 
 # Directories for user-supplied audio and outputs
 RUN mkdir -p /workspace/audio_files /workspace/output /workspace/scripts
