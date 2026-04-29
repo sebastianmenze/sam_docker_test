@@ -50,7 +50,12 @@ RUN pip install torchcodec --index-url https://download.pytorch.org/whl/cu128 ||
 
 # SAM-audio git dependencies
 RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
-RUN pip install "git+https://github.com/facebookresearch/perception.git"
+
+# facebookresearch/perception is a private repo — needs a GitHub token.
+# Token is injected via Docker build secret (never stored in image layers).
+# Before building: set GITHUB_TOKEN env var, then run docker compose build.
+RUN --mount=type=secret,id=github_token \
+    pip install "git+https://$(cat /run/secrets/github_token)@github.com/facebookresearch/perception.git"
 
 # Install xformers compatible with the installed torch version
 RUN pip install xformers --index-url https://download.pytorch.org/whl/cu128
