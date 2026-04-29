@@ -50,7 +50,7 @@ RUN pip install \
 
 # Video / codec processing
 RUN pip install pytorchvideo
-RUN pip install torchcodec==0.3.0 --index-url https://download.pytorch.org/whl/cu124
+RUN pip install torchcodec==0.2.1 --index-url https://download.pytorch.org/whl/cu124
 
 # OpenMMLab — provides mmengine used internally
 RUN pip install mmengine
