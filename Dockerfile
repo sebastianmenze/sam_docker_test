@@ -6,17 +6,19 @@ ENV PYTHONUNBUFFERED=1
 # Prevent git from trying to open a TTY for credentials during docker build
 ENV GIT_TERMINAL_PROMPT=0
 
-# Minimal system deps — ffmpeg comes from imageio-ffmpeg (bundled static binary),
-# av/torchcodec ship their own. build-essential is already in the devel base image.
-RUN apt-get clean \
+# /var/cache/apt/archives may be on a full partition — redirect downloads to /tmp
+RUN mkdir -p /tmp/apt-dl \
+    && apt-get clean \
     && apt-get -o Acquire::Check-Valid-Until=false \
                -o Acquire::Check-Date=false \
                -o Acquire::AllowInsecureRepositories=true \
+               -o Dir::Cache::archives="/tmp/apt-dl" \
                update \
     && apt-get install -y --allow-unauthenticated --no-install-recommends \
+               -o Dir::Cache::archives="/tmp/apt-dl" \
        git \
        libsndfile1 \
-    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/* /tmp/apt-dl \
     && apt-get clean
 
 WORKDIR /workspace
