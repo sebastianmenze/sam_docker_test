@@ -59,6 +59,7 @@ RUN python3 -c "import os,torchvision.transforms as T; p=os.path.join(os.path.di
 # The pyproject.toml had a wrong repo name (perception vs perception_models).
 # facebookresearch/perception_models is the correct public repo — no token needed.
 RUN pip install "git+https://github.com/facebookresearch/perception_models.git"
+RUN pip install "git+https://github.com/facebookresearch/dacvae.git"
 
 # Install xformers compatible with the installed torch version
 RUN pip install xformers --index-url https://download.pytorch.org/whl/cu128
