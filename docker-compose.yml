@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      secrets:
-        - github_token
     image: sam-audio:latest
     container_name: sam-audio-test
     # GPU access — requires nvidia-container-toolkit on the host
@@ -36,7 +34,3 @@ services:
     stdin_open: true
     tty: true
     command: /bin/bash
-
-secrets:
-  github_token:
-    environment: GITHUB_TOKEN
