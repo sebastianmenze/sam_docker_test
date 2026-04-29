@@ -53,18 +53,8 @@ RUN pip install torchcodec --index-url https://download.pytorch.org/whl/cu128 ||
 RUN pip install "git+https://github.com/facebookresearch/ImageBind.git"
 
 # torchvision.transforms.functional_tensor was removed in 0.17+; ImageBind still uses it.
-# Register a compatibility shim via sitecustomize.py so it's available on every Python start.
-RUN python3 -c "
-content = '''try:
-    import torchvision.transforms.functional as _ft
-    import sys
-    sys.modules.setdefault(\"torchvision.transforms.functional_tensor\", _ft)
-except ImportError:
-    pass
-'''
-open('/usr/local/lib/python3.11/sitecustomize.py', 'w').write(content)
-print('sitecustomize.py written')
-"
+# sitecustomize.py runs before any user code and registers the compatibility shim.
+COPY sitecustomize.py /usr/local/lib/python3.11/sitecustomize.py
 
 # The pyproject.toml had a wrong repo name (perception vs perception_models).
 # facebookresearch/perception_models is the correct public repo — no token needed.
