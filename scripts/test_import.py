@@ -30,9 +30,9 @@ except Exception as e:
     print(f"ImageBind import failed: {e}")
 
 try:
-    import perception_models
-    print("perception_models loaded OK")
+    from core.audio_visual_encoder import PEAudioFrame
+    print("perception_models (core) loaded OK")
 except Exception as e:
-    print(f"perception_models import failed: {e}")
+    print(f"perception_models (core) import failed: {e}")
 
 print("\nAll checks done.")
