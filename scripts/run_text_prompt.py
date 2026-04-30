@@ -4,12 +4,9 @@ Separate a target sound from a mixture using a text prompt.
 Usage:
     python run_text_prompt.py \
         --audio  /workspace/audio_files/my_mix.wav \
-        --prompt "dog barking" \
+        --prompt "whale call" \
         --model  large \
         --out    /workspace/output/separated.wav
-
-The model directory is expected at /workspace/models/<model-size>/.
-Run download_models.py first if you haven't already.
 """
 
 import argparse
@@ -19,25 +16,14 @@ import torch
 import torchaudio
 
 
-def load_audio(path: str) -> tuple[torch.Tensor, int]:
-    waveform, sr = torchaudio.load(path)
-    return waveform, sr
-
-
-def save_audio(waveform: torch.Tensor, sr: int, path: str) -> None:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    torchaudio.save(path, waveform.cpu(), sr)
-    print(f"Saved: {path}")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--audio",  required=True, help="Input audio file (.wav / .mp3 / etc.)")
+    parser.add_argument("--audio",  required=True, help="Input audio file")
     parser.add_argument("--prompt", required=True, help="Text description of the target sound")
-    parser.add_argument("--model",  default="large", choices=["small", "base", "large",
-                                                               "small-tv", "base-tv", "large-tv"])
+    parser.add_argument("--model",  default="large",
+                        choices=["small", "base", "large", "small-tv", "base-tv", "large-tv"])
     parser.add_argument("--out",    default="/workspace/output/separated.wav")
-    parser.add_argument("--device", default=None, help="cuda / cpu (auto-detected if omitted)")
+    parser.add_argument("--device", default=None)
     args = parser.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,34 +34,26 @@ def main() -> None:
         "small-tv": "sam-audio-small-tv", "base-tv": "sam-audio-base-tv", "large-tv": "sam-audio-large-tv",
     }
     model_dir = f"/workspace/models/{MODEL_DIRS[args.model]}"
+    print(f"Loading model from {model_dir} ...")
 
-    # --- Load SAM-Audio model ---
-    try:
-        from sam_audio import SAMAudio
-        model = SAMAudio.from_pretrained(model_dir, local_files_only=True).to(device).eval()
-    except ImportError as e:
-        print(f"Could not import SAMAudio: {e}")
-        print("Check the sam-audio package is installed and try test_import.py first.")
-        return
+    from sam_audio import SAMAudio, SAMAudioProcessor
+    model = SAMAudio.from_pretrained(model_dir).to(device).eval()
+    processor = SAMAudioProcessor.from_pretrained(model_dir)
 
-    # --- Load audio ---
-    print(f"Loading audio: {args.audio}")
-    waveform, sr = load_audio(args.audio)
-    waveform = waveform.to(device)
+    print(f"Audio:  {args.audio}")
+    print(f"Prompt: {args.prompt}")
+    inputs = processor(audios=[args.audio], descriptions=[args.prompt]).to(device)
 
-    # --- Run inference ---
-    print(f"Separating sound with prompt: '{args.prompt}'")
-    with torch.no_grad():
-        separated = model.separate(waveform, prompt=args.prompt, sample_rate=sr)
+    with torch.inference_mode():
+        result = model.separate(inputs)
 
-    # separated may be a dict or tensor — handle both
-    if isinstance(separated, dict):
-        output_wav = separated.get("audio", separated.get("output", next(iter(separated.values()))))
-    else:
-        output_wav = separated
+    separated = result.target[0].cpu()
+    if separated.dim() == 1:
+        separated = separated.unsqueeze(0)
 
-    save_audio(output_wav, sr, args.out)
-    print("Done.")
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    torchaudio.save(args.out, separated, processor.audio_sampling_rate)
+    print(f"Saved:  {args.out}")
 
 
 if __name__ == "__main__":
