@@ -51,8 +51,8 @@ def main() -> None:
 
     # --- Load SAM-Audio model ---
     try:
-        from sam_audio import SAMAudio  # adjust to actual API if needed
-        model = SAMAudio.from_pretrained(model_dir).to(device).eval()
+        from sam_audio import SAMAudio
+        model = SAMAudio.from_pretrained(model_dir, local_files_only=True).to(device).eval()
     except ImportError as e:
         print(f"Could not import SAMAudio: {e}")
         print("Check the sam-audio package is installed and try test_import.py first.")
