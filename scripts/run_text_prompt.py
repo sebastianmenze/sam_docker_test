@@ -37,8 +37,8 @@ def main() -> None:
     print(f"Loading model from {model_dir} ...")
 
     from sam_audio import SAMAudio, SAMAudioProcessor
-    model = SAMAudio.from_pretrained(model_dir).to(device).eval()
-    processor = SAMAudioProcessor.from_pretrained(model_dir)
+    model = SAMAudio.from_pretrained(model_dir, local_files_only=True).to(device).eval()
+    processor = SAMAudioProcessor.from_pretrained(model_dir, local_files_only=True)
 
     print(f"Audio:  {args.audio}")
     print(f"Prompt: {args.prompt}")
