@@ -29,6 +29,14 @@ services:
       - ./scripts:/workspace/scripts
       # Local model checkpoints — no download needed
       - ./models:/workspace/models
+      # Persist HuggingFace downloads across container restarts
+      - hf_cache:/root/.cache/huggingface
+      # Persist ImageBind weights across container restarts
+      - imagebind_cache:/workspace/.checkpoints
     stdin_open: true
     tty: true
     command: /bin/bash
+
+volumes:
+  hf_cache:
+  imagebind_cache:
