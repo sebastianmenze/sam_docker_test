@@ -1,17 +1,20 @@
 """
-Separate a target sound using a temporal prompt (time range where the target occurs).
+Separate a target sound using a temporal (span) prompt.
+
+The anchor ["+", start, end] tells the model where the target sound occurs
+so it can separate that sound from the full mixture.
 
 Usage:
     python run_temporal_prompt.py \
-        --audio /workspace/audio_files/my_mix.wav \
-        --start 2.5 \
-        --end   5.0 \
-        --model large \
-        --out   /workspace/output/separated_temporal.wav
+        --audio  /workspace/audio_files/my_mix.wav \
+        --start  5.0 \
+        --end    7.0 \
+        --prompt "whale call" \
+        --model  small \
+        --out    /workspace/output/separated_temporal.wav
 
-The time range [start, end] (in seconds) marks where the target sound occurs.
-That segment is extracted and used as an audio-query prompt so the model can
-separate the same sound from the full clip.
+    # Limit to first 30 s to reduce memory on constrained machines:
+    python run_temporal_prompt.py ... --max-duration 30
 """
 
 import argparse
@@ -24,13 +27,19 @@ import torchaudio
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--audio",  required=True)
-    parser.add_argument("--start",  type=float, required=True, help="Start time of target sound (seconds)")
-    parser.add_argument("--end",    type=float, required=True, help="End time of target sound (seconds)")
-    parser.add_argument("--model",  default="small",
+    parser.add_argument("--audio",        required=True)
+    parser.add_argument("--start",        type=float, required=True,
+                        help="Start of target sound (seconds)")
+    parser.add_argument("--end",          type=float, required=True,
+                        help="End of target sound (seconds)")
+    parser.add_argument("--prompt",       default="",
+                        help="Optional text hint about the target sound")
+    parser.add_argument("--model",        default="small",
                         choices=["small", "base", "large", "small-tv", "base-tv", "large-tv"])
-    parser.add_argument("--out",    default="/workspace/output/separated_temporal.wav")
-    parser.add_argument("--device", default=None)
+    parser.add_argument("--out",          default="/workspace/output/separated_temporal.wav")
+    parser.add_argument("--device",       default=None)
+    parser.add_argument("--max-duration", type=float, default=None,
+                        help="Clip audio to this many seconds before processing (reduces memory)")
     args = parser.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,24 +53,32 @@ def main() -> None:
     print(f"Loading model from {model_dir} ...")
 
     from sam_audio import SAMAudio, SAMAudioProcessor
-    model = SAMAudio.from_pretrained(model_dir).to(device).eval()
+    model = SAMAudio.from_pretrained(model_dir, local_files_only=True).to(device).eval()
     processor = SAMAudioProcessor.from_pretrained(model_dir)
 
-    # Extract the target segment and save to a temp file to use as audio query
-    waveform, sr = torchaudio.load(args.audio)
-    start_frame = int(args.start * sr)
-    end_frame   = int(args.end   * sr)
-    segment = waveform[:, start_frame:end_frame]
+    audio_path = args.audio
+    tmp_path = None
 
-    print(f"Audio:   {args.audio}")
-    print(f"Segment: {args.start}s – {args.end}s  ({segment.shape[-1]} samples @ {sr} Hz)")
+    if args.max_duration is not None:
+        waveform, sr = torchaudio.load(args.audio)
+        max_frames = int(args.max_duration * sr)
+        if waveform.shape[-1] > max_frames:
+            waveform = waveform[:, :max_frames]
+            tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            tmp_path = tmp.name
+            tmp.close()
+            torchaudio.save(tmp_path, waveform, sr)
+            audio_path = tmp_path
+            print(f"Clipped to {args.max_duration}s")
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        tmp_path = tmp.name
-    torchaudio.save(tmp_path, segment, sr)
+    print(f"Audio:   {audio_path}")
+    print(f"Anchor:  +[{args.start}s – {args.end}s]  prompt='{args.prompt}'")
 
-    # Build batch: full audio as the mixture, extracted segment as the audio query
-    inputs = processor(audios=[args.audio], audio_queries=[tmp_path]).to(device)
+    inputs = processor(
+        audios=[audio_path],
+        descriptions=[args.prompt],
+        anchors=[[["+", args.start, args.end]]],
+    ).to(device)
 
     with torch.inference_mode():
         result = model.separate(inputs)
@@ -74,7 +91,8 @@ def main() -> None:
     torchaudio.save(args.out, separated, processor.audio_sampling_rate)
     print(f"Saved:   {args.out}")
 
-    Path(tmp_path).unlink(missing_ok=True)
+    if tmp_path:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
