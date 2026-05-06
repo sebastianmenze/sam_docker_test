@@ -27,7 +27,7 @@ def main() -> None:
     parser.add_argument("--audio",  required=True)
     parser.add_argument("--start",  type=float, required=True, help="Start time of target sound (seconds)")
     parser.add_argument("--end",    type=float, required=True, help="End time of target sound (seconds)")
-    parser.add_argument("--model",  default="large",
+    parser.add_argument("--model",  default="small",
                         choices=["small", "base", "large", "small-tv", "base-tv", "large-tv"])
     parser.add_argument("--out",    default="/workspace/output/separated_temporal.wav")
     parser.add_argument("--device", default=None)

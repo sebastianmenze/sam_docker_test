@@ -20,7 +20,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--audio",  required=True, help="Input audio file")
     parser.add_argument("--prompt", required=True, help="Text description of the target sound")
-    parser.add_argument("--model",  default="large",
+    parser.add_argument("--model",  default="small",
                         choices=["small", "base", "large", "small-tv", "base-tv", "large-tv"])
     parser.add_argument("--out",    default="/workspace/output/separated.wav")
     parser.add_argument("--device", default=None)
