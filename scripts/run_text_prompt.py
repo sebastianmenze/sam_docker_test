@@ -5,11 +5,15 @@ Usage:
     python run_text_prompt.py \
         --audio  /workspace/audio_files/my_mix.wav \
         --prompt "whale call" \
-        --model  large \
+        --model  small \
         --out    /workspace/output/separated.wav
+
+    # Limit to first 30 seconds to reduce memory usage:
+    python run_text_prompt.py ... --max-duration 30
 """
 
 import argparse
+import tempfile
 from pathlib import Path
 
 import torch
@@ -18,12 +22,14 @@ import torchaudio
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--audio",  required=True, help="Input audio file")
-    parser.add_argument("--prompt", required=True, help="Text description of the target sound")
-    parser.add_argument("--model",  default="small",
+    parser.add_argument("--audio",        required=True, help="Input audio file")
+    parser.add_argument("--prompt",       required=True, help="Text description of the target sound")
+    parser.add_argument("--model",        default="small",
                         choices=["small", "base", "large", "small-tv", "base-tv", "large-tv"])
-    parser.add_argument("--out",    default="/workspace/output/separated.wav")
-    parser.add_argument("--device", default=None)
+    parser.add_argument("--out",          default="/workspace/output/separated.wav")
+    parser.add_argument("--device",       default=None)
+    parser.add_argument("--max-duration", type=float, default=None,
+                        help="Clip audio to this many seconds before processing (reduces memory)")
     args = parser.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -40,9 +46,24 @@ def main() -> None:
     model = SAMAudio.from_pretrained(model_dir, local_files_only=True).to(device).eval()
     processor = SAMAudioProcessor.from_pretrained(model_dir)
 
-    print(f"Audio:  {args.audio}")
+    audio_path = args.audio
+    tmp_path = None
+
+    if args.max_duration is not None:
+        waveform, sr = torchaudio.load(args.audio)
+        max_frames = int(args.max_duration * sr)
+        if waveform.shape[-1] > max_frames:
+            waveform = waveform[:, :max_frames]
+            tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            tmp_path = tmp.name
+            tmp.close()
+            torchaudio.save(tmp_path, waveform, sr)
+            audio_path = tmp_path
+            print(f"Clipped to {args.max_duration}s ({max_frames} samples)")
+
+    print(f"Audio:  {audio_path}")
     print(f"Prompt: {args.prompt}")
-    inputs = processor(audios=[args.audio], descriptions=[args.prompt]).to(device)
+    inputs = processor(audios=[audio_path], descriptions=[args.prompt]).to(device)
 
     with torch.inference_mode():
         result = model.separate(inputs)
@@ -54,6 +75,9 @@ def main() -> None:
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torchaudio.save(args.out, separated, processor.audio_sampling_rate)
     print(f"Saved:  {args.out}")
+
+    if tmp_path:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
